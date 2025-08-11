@@ -1,0 +1,593 @@
+<!DOCTYPE html>
+<html lang="bn">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>এডমিন ড্যাশবোর্ড</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.6.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.6.0/firebase-firestore-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.6.0/firebase-auth-compat.js"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+Bengali:wght@400;500;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <style>
+        body {
+            font-family: 'Noto Sans Bengali', sans-serif;
+            background-color: #f8fafc;
+        }
+        .sidebar {
+            transition: all 0.3s ease;
+            background: linear-gradient(180deg, #1e40af 0%, #1e3a8a 100%);
+        }
+        .nav-item {
+            transition: all 0.2s ease;
+        }
+        .nav-item:hover {
+            transform: translateX(4px);
+        }
+        .active-tab {
+            background-color: rgba(255, 255, 255, 0.1);
+            border-left: 4px solid #3b82f6;
+        }
+        .stats-card {
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05), 0 2px 4px -1px rgba(0, 0, 0, 0.03);
+            transition: all 0.3s ease;
+        }
+        .stats-card:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
+        }
+        .table-row:hover {
+            background-color: #f8fafc;
+        }
+        .badge {
+            font-size: 0.75rem;
+            padding: 0.25rem 0.5rem;
+            border-radius: 9999px;
+        }
+        .modal-overlay {
+            background: rgba(0, 0, 0, 0.5);
+            backdrop-filter: blur(4px);
+        }
+    </style>
+</head>
+<body class="min-h-screen">
+    <div id="sidebar-overlay" class="fixed inset-0 bg-black bg-opacity-50 z-40 hidden md:hidden"></div>
+    
+    <div class="flex h-screen overflow-hidden">
+        <div id="sidebar" class="sidebar text-white w-64 space-y-6 py-7 px-2 absolute inset-y-0 left-0 transform -translate-x-full md:relative md:translate-x-0 transition duration-200 ease-in-out z-50">
+            <div class="text-white flex items-center space-x-2 px-4">
+                <i class="fas fa-university text-2xl"></i>
+                <span class="text-xl font-bold">এডমিন প্যানেল</span>
+            </div>
+
+            <nav class="space-y-1 px-2">
+                <button id="dashboard-tab" class="active-tab nav-item w-full flex items-center space-x-3 py-3 px-4 rounded-lg text-white">
+                    <i class="fas fa-tachometer-alt w-5"></i>
+                    <span>ড্যাশবোর্ড</span>
+                </button>
+                <button id="drive-link-tab" class="nav-item w-full flex items-center space-x-3 py-3 px-4 rounded-lg text-white hover:bg-blue-900">
+                    <i class="fas fa-link w-5"></i>
+                    <span>ড্রাইভ লিংক</span>
+                </button>
+                <button id="logout-btn" class="nav-item w-full flex items-center space-x-3 py-3 px-4 rounded-lg text-white hover:bg-red-600 mt-10">
+                    <i class="fas fa-sign-out-alt w-5"></i>
+                    <span>লগআউট</span>
+                </button>
+            </nav>
+        </div>
+
+        <div class="flex-1 flex flex-col overflow-hidden">
+            <header class="bg-white shadow-sm">
+                <div class="flex justify-between items-center py-4 px-6">
+                    <button id="sidebar-toggle" class="text-gray-500 focus:outline-none md:hidden">
+                        <i class="fas fa-bars text-xl"></i>
+                    </button>
+                    
+                    <div class="hidden md:block">
+                        <h1 class="text-lg font-bold text-gray-800">সরকারি শহীদ সিরাজুদ্দীন হোসেন মহাবিদ্যালয়</h1>
+                        <p class="text-xs text-gray-500">সিলেবাস ডাউনলোড ম্যানেজমেন্ট সিস্টেম</p>
+                    </div>
+                    
+                    <div class="flex items-center">
+                        <div class="text-right mr-3 hidden md:block">
+                            <p class="text-sm font-medium text-gray-700">এডমিন</p>
+                            <p class="text-xs text-gray-500">smartwork19999@gmail.com</p>
+                        </div>
+                        <div class="h-10 w-10 rounded-full bg-blue-500 flex items-center justify-center text-white font-bold shadow">
+                            <i class="fas fa-user-shield"></i>
+                        </div>
+                    </div>
+                </div>
+            </header>
+
+            <main class="flex-1 overflow-y-auto p-4 bg-gray-50">
+                <section id="dashboard-section">
+                    <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-6">
+                        <div class="stats-card bg-white rounded-lg shadow p-6">
+                            <div class="flex items-center">
+                                <div class="p-3 rounded-full bg-blue-100 text-blue-600 mr-4">
+                                    <i class="fas fa-users text-xl"></i>
+                                </div>
+                                <div>
+                                    <p class="text-sm text-gray-500">মোট ডাউনলোডকারী</p>
+                                    <h3 id="total-users" class="text-2xl font-bold">0</h3>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="stats-card bg-white rounded-lg shadow p-6">
+                            <div class="flex items-center">
+                                <div class="p-3 rounded-full bg-green-100 text-green-600 mr-4">
+                                    <i class="fas fa-download text-xl"></i>
+                                </div>
+                                <div>
+                                    <p class="text-sm text-gray-500">মোট ডাউনলোড</p>
+                                    <h3 id="total-downloads" class="text-2xl font-bold">0</h3>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="stats-card bg-white rounded-lg shadow p-6">
+                            <div class="flex items-center">
+                                <div class="p-3 rounded-full bg-purple-100 text-purple-600 mr-4">
+                                    <i class="fas fa-clock text-xl"></i>
+                                </div>
+                                <div>
+                                    <p class="text-sm text-gray-500">সর্বশেষ ডাউনলোড</p>
+                                    <h3 id="last-download" class="text-xl font-bold">-</h3>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="bg-white rounded-lg shadow overflow-hidden">
+                        <div class="px-6 py-4 border-b border-gray-200 flex justify-between items-center">
+                            <h2 class="text-lg font-bold text-gray-800">ডাউনলোড স্ট্যাটিস্টিক্স</h2>
+                            <div class="relative">
+                                <input type="text" id="search-input" class="pl-8 pr-4 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500" placeholder="খুঁজুন...">
+                                <i class="fas fa-search absolute left-3 top-3 text-gray-400"></i>
+                            </div>
+                        </div>
+                        <div class="overflow-x-auto">
+                            <table class="min-w-full divide-y divide-gray-200">
+                                <thead class="bg-gray-50">
+                                    <tr>
+                                        <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">সিরিয়াল</th>
+                                        <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">নাম</th>
+                                        <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">রোল নম্বর</th>
+                                        <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">প্রথম ডাউনলোড</th>
+                                        <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">সর্বশেষ ডাউনলোড</th>
+                                        <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">মোট ডাউনলোড</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="stats-body" class="bg-white divide-y divide-gray-200">
+                                    <tr>
+                                        <td colspan="6" class="px-6 py-4 text-center text-gray-500">ডাটা লোড হচ্ছে...</td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
+                        <div class="px-6 py-3 border-t border-gray-200 flex items-center justify-between">
+                            <div class="text-sm text-gray-500">
+                                দেখানো হচ্ছে <span id="showing-from">1</span> থেকে <span id="showing-to">10</span> এর মধ্যে, মোট <span id="total-records">0</span> রেকর্ড
+                            </div>
+                            <div class="flex space-x-2">
+                                <button id="prev-page" class="px-3 py-1 border border-gray-300 rounded text-sm disabled:opacity-50" disabled>
+                                    <i class="fas fa-chevron-left"></i>
+                                </button>
+                                <button id="next-page" class="px-3 py-1 border border-gray-300 rounded text-sm disabled:opacity-50" disabled>
+                                    <i class="fas fa-chevron-right"></i>
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </section>
+
+                <section id="drive-link-section" class="hidden">
+                    <div class="bg-white rounded-lg shadow overflow-hidden mb-6">
+                        <div class="px-6 py-4 border-b border-gray-200">
+                            <h2 class="text-lg font-bold text-gray-800">ড্রাইভ লিংক ম্যানেজমেন্ট</h2>
+                        </div>
+                        <div class="p-6">
+                            <div class="space-y-4">
+                                <div>
+                                    <label for="drive-link" class="block text-sm font-medium text-gray-700 mb-1">গুগল ড্রাইভ লিংক</label>
+                                    <input type="url" id="drive-link" class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500" placeholder="https://drive.google.com/...">
+                                </div>
+                                <div>
+                                    <label for="link-title" class="block text-sm font-medium text-gray-700 mb-1">লিংক টাইটেল (ঐচ্ছিক)</label>
+                                    <input type="text" id="link-title" class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500" placeholder="যেমন: ১ম সাময়িক পরীক্ষার সিলেবাস">
+                                </div>
+                                <button id="update-link-btn" class="bg-blue-600 text-white px-6 py-2 rounded-lg hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 transition-colors duration-200">
+                                    লিংক আপডেট করুন
+                                </button>
+                                <div id="link-status" class="text-sm mt-2"></div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="bg-white rounded-lg shadow overflow-hidden">
+                        <div class="px-6 py-4 border-b border-gray-200">
+                            <h2 class="text-lg font-bold text-gray-800">বর্তমান লিংক</h2>
+                        </div>
+                        <div class="p-6">
+                            <div id="current-link-container" class="p-4 bg-gray-50 rounded-lg border border-gray-200">
+                                <div class="flex items-center justify-between">
+                                    <div>
+                                        <p id="current-link-title" class="font-medium text-gray-800">কোন লিংক সংযুক্ত করা হয়নি</p>
+                                        <a id="current-link-url" href="#" target="_blank" class="text-blue-600 hover:underline hidden">Link</a>
+                                    </div>
+                                    <div id="link-meta" class="text-sm text-gray-500 hidden">
+                                        <p>সর্বশেষ আপডেট: <span id="link-update-time">-</span></p>
+                                        <p>দ্বারা: <span id="link-update-by">-</span></p>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </section>
+            </main>
+        </div>
+    </div>
+
+    <script>
+        // Please move this to a secure server-side environment in a production app.
+        // For this example, it's included here.
+        const firebaseConfig = {
+            apiKey: "AIzaSyAyOg_9r6B2oEw5tyRhDYvz5KRCvknPNtE",
+            authDomain: "edtech-success-hub.firebaseapp.com",
+            projectId: "edtech-success-hub",
+            storageBucket: "edtech-success-hub.appspot.com",
+            messagingSenderId: "898562954156",
+            appId: "1:898562954156:web:852b093759df69ed7a2009"
+        };
+
+        // Initialize Firebase
+        firebase.initializeApp(firebaseConfig);
+        const db = firebase.firestore();
+        const auth = firebase.auth();
+    </script>
+
+    <script>
+        // DOM Elements
+        const sidebarToggle = document.getElementById('sidebar-toggle');
+        const sidebar = document.getElementById('sidebar');
+        const sidebarOverlay = document.getElementById('sidebar-overlay');
+        const dashboardTab = document.getElementById('dashboard-tab');
+        const driveLinkTab = document.getElementById('drive-link-tab');
+        const dashboardSection = document.getElementById('dashboard-section');
+        const driveLinkSection = document.getElementById('drive-link-section');
+        const logoutBtn = document.getElementById('logout-btn');
+        
+        // Stats elements
+        const totalUsersEl = document.getElementById('total-users');
+        const totalDownloadsEl = document.getElementById('total-downloads');
+        const lastDownloadEl = document.getElementById('last-download');
+        const statsBody = document.getElementById('stats-body');
+        const searchInput = document.getElementById('search-input');
+        
+        // Drive link elements
+        const driveLinkInput = document.getElementById('drive-link');
+        const linkTitleInput = document.getElementById('link-title');
+        const updateLinkBtn = document.getElementById('update-link-btn');
+        const linkStatus = document.getElementById('link-status');
+        const currentLinkContainer = document.getElementById('current-link-container');
+        const currentLinkTitle = document.getElementById('current-link-title');
+        const currentLinkUrl = document.getElementById('current-link-url');
+        const linkMeta = document.getElementById('link-meta');
+        const linkUpdateTime = document.getElementById('link-update-time');
+        const linkUpdateBy = document.getElementById('link-update-by');
+        
+        // Pagination elements
+        const prevPageBtn = document.getElementById('prev-page');
+        const nextPageBtn = document.getElementById('next-page');
+        const showingFrom = document.getElementById('showing-from');
+        const showingTo = document.getElementById('showing-to');
+        const totalRecords = document.getElementById('total-records');
+
+        // Variables
+        let currentUser = null;
+        let downloadStats = [];
+        let filteredStats = [];
+        let currentDriveLink = null;
+        let pagination = {
+            currentPage: 1,
+            pageSize: 10,
+            totalPages: 1
+        };
+
+        // Initialize the app
+        function initApp() {
+            auth.onAuthStateChanged(user => {
+                if (user) {
+                    // Check user's role on the server-side for enhanced security
+                    // For this example, we'll continue with the client-side check
+                    // but with a strong recommendation for a server-side solution.
+                    if (user.email === "smartwork19999@gmail.com") {
+                        currentUser = user;
+                        loadData();
+                        setupEventListeners();
+                    } else {
+                        // Redirect non-admin users
+                        window.location.href = "login.html";
+                    }
+                } else {
+                    // Redirect to login if not authenticated
+                    window.location.href = "login.html";
+                }
+            });
+        }
+
+        // Load data from Firestore
+        function loadData() {
+            // Load download stats
+            db.collection("downloadStats").orderBy("lastDownload", "desc").onSnapshot(snapshot => {
+                downloadStats = [];
+                let totalDownloadCount = 0;
+                
+                snapshot.forEach(doc => {
+                    const data = doc.data();
+                    downloadStats.push({ 
+                        id: doc.id,
+                        name: data.name,
+                        roll: data.roll,
+                        firstDownload: data.firstDownload,
+                        lastDownload: data.lastDownload,
+                        downloadCount: data.downloadCount
+                    });
+                    totalDownloadCount += data.downloadCount;
+                });
+
+                // Update stats
+                totalUsersEl.textContent = downloadStats.length;
+                totalDownloadsEl.textContent = totalDownloadCount;
+                
+                if (downloadStats.length > 0) {
+                    const lastDownloadDate = new Date(downloadStats[0].lastDownload);
+                    lastDownloadEl.textContent = lastDownloadDate.toLocaleDateString('bn-BD', {
+                        day: '2-digit',
+                        month: 'short',
+                        year: 'numeric',
+                        hour: '2-digit',
+                        minute: '2-digit'
+                    });
+                } else {
+                    lastDownloadEl.textContent = '-';
+                }
+
+                // Apply search filter if any
+                applySearchFilter();
+            });
+
+            // Load current drive link
+            db.collection("settings").doc("driveLink").onSnapshot(doc => {
+                if (doc.exists) {
+                    currentDriveLink = doc.data();
+                    renderCurrentLink();
+                } else {
+                    currentDriveLink = null;
+                    renderCurrentLink();
+                }
+            });
+        }
+
+        // Apply search filter
+        function applySearchFilter() {
+            const searchTerm = searchInput.value.toLowerCase();
+            
+            if (searchTerm) {
+                filteredStats = downloadStats.filter(record => 
+                    record.name.toLowerCase().includes(searchTerm) || 
+                    record.roll.toLowerCase().includes(searchTerm)
+                );
+            } else {
+                filteredStats = [...downloadStats];
+            }
+            
+            totalRecords.textContent = filteredStats.length;
+            pagination.totalPages = Math.ceil(filteredStats.length / pagination.pageSize);
+            renderDownloadStats();
+        }
+
+        // Render download stats
+        function renderDownloadStats() {
+            // Calculate pagination
+            const startIndex = (pagination.currentPage - 1) * pagination.pageSize;
+            const endIndex = Math.min(startIndex + pagination.pageSize, filteredStats.length);
+            const paginatedStats = filteredStats.slice(startIndex, endIndex);
+            
+            // Update pagination info
+            showingFrom.textContent = startIndex + 1;
+            showingTo.textContent = endIndex;
+            
+            // Enable/disable pagination buttons
+            prevPageBtn.disabled = pagination.currentPage === 1;
+            nextPageBtn.disabled = pagination.currentPage === pagination.totalPages || filteredStats.length === 0;
+            
+            // Render table rows
+            statsBody.innerHTML = paginatedStats.map((record, index) => {
+                const firstDownload = new Date(record.firstDownload);
+                const lastDownload = new Date(record.lastDownload);
+                
+                const formatDate = (date) => {
+                    return date.toLocaleDateString('bn-BD', {
+                        day: '2-digit',
+                        month: 'short',
+                        year: 'numeric',
+                        hour: '2-digit',
+                        minute: '2-digit'
+                    });
+                };
+
+                return `
+                    <tr class="table-row hover:bg-gray-50 transition-colors">
+                        <td class="px-6 py-4 whitespace-nowrap">${startIndex + index + 1}</td>
+                        <td class="px-6 py-4 whitespace-nowrap">${record.name}</td>
+                        <td class="px-6 py-4 whitespace-nowrap">${record.roll}</td>
+                        <td class="px-6 py-4 whitespace-nowrap">${formatDate(firstDownload)}</td>
+                        <td class="px-6 py-4 whitespace-nowrap">
+                            <div class="flex items-center">
+                                ${formatDate(lastDownload)}
+                                <span class="ml-2 badge ${new Date() - lastDownload < 86400000 ? 'bg-green-100 text-green-800' : 'bg-blue-100 text-blue-800'}">
+                                    ${new Date() - lastDownload < 86400000 ? 'আজ' : ''}
+                                </span>
+                            </div>
+                        </td>
+                        <td class="px-6 py-4 whitespace-nowrap">
+                            <span class="badge bg-purple-100 text-purple-800">${record.downloadCount}</span>
+                        </td>
+                    </tr>
+                `;
+            }).join('') || '<tr><td colspan="6" class="px-6 py-4 text-center text-gray-500">কোন ডাটা পাওয়া যায়নি</td></tr>';
+        }
+
+        // Render current link
+        function renderCurrentLink() {
+            if (currentDriveLink) {
+                currentLinkTitle.textContent = currentDriveLink.title || 'সিলেবাস ডাউনলোড লিংক';
+                currentLinkUrl.textContent = currentDriveLink.url;
+                currentLinkUrl.href = currentDriveLink.url;
+                
+                linkUpdateTime.textContent = new Date(currentDriveLink.updatedAt).toLocaleDateString('bn-BD', {
+                    day: '2-digit',
+                    month: 'short',
+                    year: 'numeric',
+                    hour: '2-digit',
+                    minute: '2-digit'
+                });
+                
+                linkUpdateBy.textContent = currentDriveLink.updatedBy || 'এডমিন';
+                
+                currentLinkUrl.classList.remove('hidden');
+                linkMeta.classList.remove('hidden');
+            } else {
+                currentLinkTitle.textContent = 'কোন লিংক সংযুক্ত করা হয়নি';
+                currentLinkUrl.classList.add('hidden');
+                linkMeta.classList.add('hidden');
+            }
+        }
+
+        // Update drive link
+        function updateDriveLink() {
+            const url = driveLinkInput.value.trim();
+            const title = linkTitleInput.value.trim();
+            
+            if (!url) {
+                showStatus('দয়া করে একটি বৈধ লিংক প্রদান করুন', 'error');
+                return;
+            }
+            
+            updateLinkBtn.disabled = true;
+            updateLinkBtn.innerHTML = '<i class="fas fa-spinner fa-spin mr-2"></i> আপডেট হচ্ছে...';
+            
+            const linkData = {
+                url,
+                title: title || 'সিলেবাস ডাউনলোড লিংক',
+                updatedAt: new Date().toISOString(), // Using ISO string for consistency
+                updatedBy: currentUser.email
+            };
+            
+            db.collection("settings").doc("driveLink").set(linkData)
+                .then(() => {
+                    showStatus('লিংক সফলভাবে আপডেট করা হয়েছে!', 'success');
+                    updateLinkBtn.disabled = false;
+                    updateLinkBtn.innerHTML = 'লিংক আপডেট করুন';
+                })
+                .catch(error => {
+                    showStatus('আপডেট করতে সমস্যা হয়েছে: ' + error.message, 'error');
+                    updateLinkBtn.disabled = false;
+                    updateLinkBtn.innerHTML = 'লিংক আপডেট করুন';
+                });
+        }
+
+        // Show status message
+        function showStatus(message, type) {
+            linkStatus.textContent = message;
+            linkStatus.className = 'text-sm mt-2';
+            
+            if (type === 'success') {
+                linkStatus.classList.add('text-green-600');
+            } else if (type === 'error') {
+                linkStatus.classList.add('text-red-600');
+            }
+            
+            setTimeout(() => {
+                linkStatus.textContent = '';
+            }, 5000);
+        }
+
+        // Logout function
+        function logout() {
+            auth.signOut().then(() => {
+                window.location.href = "login.html";
+            });
+        }
+
+        // Setup event listeners
+        function setupEventListeners() {
+            // Sidebar toggle
+            sidebarToggle.addEventListener('click', () => {
+                sidebar.classList.toggle('-translate-x-full');
+                sidebarOverlay.classList.toggle('hidden');
+            });
+            
+            sidebarOverlay.addEventListener('click', () => {
+                sidebar.classList.add('-translate-x-full');
+                sidebarOverlay.classList.add('hidden');
+            });
+
+            // Tab navigation
+            dashboardTab.addEventListener('click', () => {
+                dashboardTab.classList.add('active-tab');
+                driveLinkTab.classList.remove('active-tab');
+                dashboardSection.classList.remove('hidden');
+                driveLinkSection.classList.add('hidden');
+                if (window.innerWidth < 768) {
+                    sidebar.classList.add('-translate-x-full');
+                    sidebarOverlay.classList.add('hidden');
+                }
+            });
+
+            driveLinkTab.addEventListener('click', () => {
+                driveLinkTab.classList.add('active-tab');
+                dashboardTab.classList.remove('active-tab');
+                driveLinkSection.classList.remove('hidden');
+                dashboardSection.classList.add('hidden');
+                if (window.innerWidth < 768) {
+                    sidebar.classList.add('-translate-x-full');
+                    sidebarOverlay.classList.add('hidden');
+                }
+            });
+
+            // Search input
+            searchInput.addEventListener('input', () => {
+                pagination.currentPage = 1;
+                applySearchFilter();
+            });
+
+            // Pagination
+            prevPageBtn.addEventListener('click', () => {
+                if (pagination.currentPage > 1) {
+                    pagination.currentPage--;
+                    renderDownloadStats();
+                }
+            });
+
+            nextPageBtn.addEventListener('click', () => {
+                if (pagination.currentPage < pagination.totalPages) {
+                    pagination.currentPage++;
+                    renderDownloadStats();
+                }
+            });
+
+            // Drive link update
+            updateLinkBtn.addEventListener('click', updateDriveLink);
+            
+            // Logout
+            logoutBtn.addEventListener('click', logout);
+        }
+
+        // Initialize the app
+        document.addEventListener('DOMContentLoaded', initApp);
+    </script>
+</body>
+</html>
